@@ -609,6 +609,10 @@
     return this.map(mapFn);
   };
 
+  Sequence.prototype.concatMap = function concatMap(mapFn) {
+    return this.map(mapFn).concatAll();
+  };
+
   /**
    * @constructor
    */
@@ -939,15 +943,30 @@
    * Lazy(left).concat(right, [7, 8]) // sequence: [1, 2, 3, 4, 5, 6, 7, 8]
    */
   Sequence.prototype.concat = function concat(var_args) {
-    return new ConcatenatedSequence(this, arraySlice.call(arguments, 0));
+    return new ConcatenatedSequence([this].concat(arraySlice.call(arguments, 0)));
+  };
+
+  /**
+   * Creates a new sequence that is the concatenation of the sequences or
+   * arrays contained by this sequence.
+   *
+   * @public
+   * @returns {Sequence} The new sequence.
+   *
+   * @examples
+   * Lazy([[1, 2], [3, 4]).concatAll()      // sequence: [1, 2, 3, 4]
+   * Lazy([[1, 2], 3, [4]).concatAll()      // sequence: [1, 2, 3, 4]
+   * Lazy([[1, 2], [3, [4, 5]]).concatALl() // sequence: [1, 2, 3, [4, 5]]
+   */
+  Sequence.prototype.concatAll = function concatAll() {
+    return new ConcatenatedSequence(this);
   };
 
   /**
    * @constructor
    */
-  function ConcatenatedSequence(parent, arrays) {
-    this.parent = parent;
-    this.arrays = arrays;
+  function ConcatenatedSequence(sequences) {
+    this.sequences = Lazy(sequences);
   }
 
   ConcatenatedSequence.prototype = new Sequence();
@@ -956,20 +975,14 @@
     var done = false,
         i = 0;
 
-    this.parent.each(function(e) {
+    this.sequences.each(function (sequence) {
       if (fn(e, i++) === false) {
         done = true;
         return false;
       }
-    });
 
-    if (!done) {
-      Lazy(this.arrays).flatten().each(function(e) {
-        if (fn(e, i++) === false) {
-          return false;
-        }
-      });
-    }
+      return !done;
+    });
   };
 
   /**
